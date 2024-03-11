@@ -46,7 +46,7 @@ export async function startGame(data: { gameId: string, players: string[] }) {
       case 'preview':
         return process.env.VERCEL_BRANCH_URL
       case 'production':
-        return "thavalon.vercel.app"
+        return "thavalon-five.vercel.app"
       default:
         throw new Error('Unknown environment')
     }
