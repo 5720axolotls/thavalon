@@ -9,24 +9,49 @@ interface ProtoGame {
   players: string[];
 }
 
+// Game data with a specified host
+interface HostedGame extends ProtoGame {
+  host: string;
+}
+
+interface VoteMap {
+  [player: string]: boolean | null;
+}
+
+interface ProposalToVotes {
+  [index: number]: VoteMap;
+}
+
+interface MissionToProposals {
+  [index: number]: ProposalToVotes;
+}
+
+// define a type of game state
+export type GameState = "PROPOSING" | "VOTING";
+
 // Game data with a specified start player
 export interface Game extends ProtoGame {
+  // overall game state as a string
+  doNotOpen: string;
   // starting player for proposing missions
   start: string;
   // games also have a mapping from player names to their roles
   [player: string]: any;
+  // current mission number tracks the current quest, 1-5
+  missionIndex: number;
+  // current proposal number tracks the current proposal, 1-3
+  proposalIndex: number;
+  // map mission/proposal indices to votes
+  missionToProposals: MissionToProposals;
+  // game state
+  gameState: GameState;
 }
 
 export async function createGame(host: string) {
   const gameId = randomUUID();
 
-  const file = new Blob([JSON.stringify({ gameId, host, players: [host] })], { type: "application/json" });
-  await put(`${gameId}.json`, file, {
-    access: 'public',
-    addRandomSuffix: false,
-    contentType: 'application/json',
-    token: process.env.DB_READ_WRITE_TOKEN
-  })
+  const game: HostedGame = { gameId, host, players: [host] }
+  putGame(game)
 
   return gameId
 }
@@ -65,14 +90,11 @@ export async function startGame(data: { gameId: string, players: string[] }) {
     }
   )
 
-  const gameData = await response.json()
+  const gameData: Game = await response.json()
+  gameData.gameState = "PROPOSING"
+  gameData.gameId = data.gameId
 
-  const file = new Blob([JSON.stringify(gameData)], { type: "application/json" });
-  await put(`${data.gameId}.json`, file, {
-    access: 'public',
-    addRandomSuffix: false,
-    token: process.env.DB_READ_WRITE_TOKEN
-  })
+  putGame(gameData)
 }
 
 export async function getGame(gameId: string): Promise<Game> {
@@ -103,8 +125,21 @@ export async function getGameId(gameCode: string) {
   return gameId
 }
 
+export async function putGame(game: ProtoGame | Game) {
+  console.log("Called putGame with", game, `${game.gameId}.json`)
+  const file = new Blob([JSON.stringify(game)], { type: "application/json" });
+  console.log("here file", file)
+  const response = await put(`${game.gameId}.json`, file, {
+    access: 'public',
+    addRandomSuffix: false,
+    token: process.env.DB_READ_WRITE_TOKEN,
+  })
+  console.log("Put Response", response)
+}
+
 export async function addPlayer(gameId: string, player: string) {
   const game = await getGame(gameId)
+  console.log("here adding player", game, player)
   const players = game.players || []
 
   if (players.includes(player)) {
@@ -114,10 +149,46 @@ export async function addPlayer(gameId: string, player: string) {
   players.push(player)
   game.players = players
 
-  const file = new Blob([JSON.stringify(game)], { type: "application/json" });
-  await put(`${gameId}.json`, file, {
-    access: 'public',
-    addRandomSuffix: false,
-    token: process.env.DB_READ_WRITE_TOKEN,
-  })
+  putGame(game)
+}
+
+export async function updateGameState(gameId: string, gameState: GameState) {
+  const game = await getGame(gameId)
+  if (game.gameState === gameState) {
+    return
+  }
+  game.gameState = gameState
+
+  putGame(game)
+}
+
+export async function updateGamePostVote(gameId: string, missionIndex: number, proposalIndex: number) {
+  const game = await getGame(gameId)
+  console.log("Here updating mission proposal indices", missionIndex, proposalIndex)
+  if ((game.missionIndex === missionIndex && game.proposalIndex === proposalIndex) || game.gameState !== "VOTING") {
+    return
+  }
+  game.gameState = "PROPOSING"
+  game.missionIndex = missionIndex
+  game.proposalIndex = proposalIndex
+  const missionToProposals = game.missionToProposals || {}
+  missionToProposals[missionIndex] = missionToProposals[missionIndex] || {}
+  missionToProposals[missionIndex][proposalIndex] =  {}
+  game.missionToProposals = missionToProposals
+  console.log("mission index", missionIndex, "proposals: ", proposalIndex, "here game", game)
+
+  putGame(game)
+}
+
+export async function updateMissionProposalVote(gameId: string, missionIndex: number, proposalIndex: number, player: string, vote: boolean) {
+  const game = await getGame(gameId)
+  const missionToProposals = game.missionToProposals || {}
+  const proposalToVotes = missionToProposals[missionIndex] || {}
+  const votes = proposalToVotes[proposalIndex] || {}
+  votes[player] = vote
+  proposalToVotes[proposalIndex] = votes
+  missionToProposals[missionIndex] = proposalToVotes
+  game.missionToProposals = missionToProposals
+
+  putGame(game)
 }

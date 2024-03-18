@@ -34,9 +34,12 @@ export const GameManager = ({ gameId, gameCode }: GameManagerProps) => {
   }, []);
 
   const addCurrentPlayer = async () => {
+    console.log("here setting player", player)
     setPlayers([...players, player]);
     await addPlayer(gameId, player);
+    console.log("here fetching all players")
     await fetchPlayers();
+    console.log("here done")
   }
 
   React.useEffect(() => {
@@ -47,6 +50,7 @@ export const GameManager = ({ gameId, gameCode }: GameManagerProps) => {
 
   const fetchPlayers = React.useCallback(async () => {
     const game = await getGame(gameId);
+    console.log("here game", game)
     if (game.players !== undefined && game.players.length > 0) {
       setPlayers(game.players);
     }

@@ -1,6 +1,7 @@
 import { getGame } from '../../index'
 import React from 'react'
 import { RemakeGame } from './RemakeGame'
+import { GameStateManager } from './GameStateManager'
 
 export default async function GameHome({
   params,
@@ -11,6 +12,7 @@ export default async function GameHome({
 }) {
   const game = await getGame(params.gameId)
   const gameCode = (searchParams['gameCode'] as string).toUpperCase()
+  console.log("game here", game)
 
   return (
     <main className="min-h-screen h-full flex flex-col items-center justify-center p-24">
@@ -34,7 +36,8 @@ export default async function GameHome({
               ))}
             </div>
           </div>
-          <RemakeGame />
+          <GameStateManager  gameId={params.gameId}/>
+          <RemakeGame/>
         </div>
       }
     </main>

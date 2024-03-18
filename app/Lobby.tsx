@@ -16,6 +16,7 @@ const Lobby = () => {
     setIsLoading(true);
     const gameId = await createGame(username);
     const gameCode = await createGameCode(gameId);
+    console.log("game created", gameId)
     window.location.assign(`/game/${gameId}?gameCode=${gameCode}`);
     return false;
   }

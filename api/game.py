@@ -315,4 +315,9 @@ def get_player_info(player_names):
     )
 
     data["players"] = [p.name for p in players]
+
+    # set up vote tracking
+    data["missionIndex"] = 1
+    data["proposalIndex"] = 1
+    data["missionToProposals"] = {1: {1: {}}}
     return data
